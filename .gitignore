@@ -1,0 +1,31 @@
+# Ignore build output directories
+Debug/
+/Release/
+build/
+
+# Ignore temporary files
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+
+# Ignore STM32CubeIDE generated files and configuration
+*.launch
+*.log
+*.bak
+*.cproject
+*.mxproject
+.settings/
+
+# Ignore build analysis files
+*.cyclo
+*.su
+
+# Ignore editor temporary files
+*~
+*.swp
+
+# Optionally ignore workspace metadata if not needed
+.metadata/
