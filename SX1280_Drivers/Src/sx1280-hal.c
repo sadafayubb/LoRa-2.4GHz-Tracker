@@ -130,13 +130,13 @@ void SX1280HalInit( DioIrqHandler **irqHandlers )
 void SX1280HalIoIrqInit( DioIrqHandler **irqHandlers )
 {
 #if( RADIO_DIO1_ENABLE )
-    GpioSetIrq( RADIO_DIO1_GPIO_Port, RADIO_DIO1_Pin, IRQ_HIGH_PRIORITY, irqHandlers[0] );
+    GpioSetIrq( RADIO_DIO1_PORT, RADIO_DIO1_PIN, IRQ_HIGH_PRIORITY, irqHandlers[0] );
 #endif
 #if( RADIO_DIO2_ENABLE )
-	GpioSetIrq( RADIO_DIO2_GPIO_Port, RADIO_DIO2_Pin, IRQ_HIGH_PRIORITY, irqHandlers[0] );
+	GpioSetIrq( RADIO_DIO2_PORT, RADIO_DIO2_PIN, IRQ_HIGH_PRIORITY, irqHandlers[0] );
 #endif
 #if( RADIO_DIO3_ENABLE )
-	GpioSetIrq( RADIO_DIO3_GPIO_Port, RADIO_DIO3_Pin, IRQ_HIGH_PRIORITY, irqHandlers[0] );
+	GpioSetIrq( RADIO_DIO3_PORT, RADIO_DIO3_PIN, IRQ_HIGH_PRIORITY, irqHandlers[0] );
 #endif
 #if( !RADIO_DIO1_ENABLE && !RADIO_DIO2_ENABLE && !RADIO_DIO3_ENABLE )
 #error "Please define a DIO" 
@@ -343,13 +343,13 @@ uint8_t SX1280HalGetDioStatus( void )
 	uint8_t Status = GpioRead( RADIO_BUSY_PORT, RADIO_BUSY_PIN );
 	
 #if( RADIO_DIO1_ENABLE )
-	Status |= (GpioRead( RADIO_DIO1_GPIO_Port, RADIO_DIO1_Pin ) << 1);
+	Status |= (GpioRead( RADIO_DIO1_PORT, RADIO_DIO1_PIN ) << 1);
 #endif
 #if( RADIO_DIO2_ENABLE )
-	Status |= (GpioRead( RADIO_DIO2_GPIO_Port, RADIO_DIO2_Pin ) << 2);
+	Status |= (GpioRead( RADIO_DIO2_PORT, RADIO_DIO2_PIN ) << 2);
 #endif
 #if( RADIO_DIO3_ENABLE )
-	Status |= (GpioRead( RADIO_DIO3_GPIO_Port, RADIO_DIO3_Pin ) << 3);
+	Status |= (GpioRead( RADIO_DIO3_PORT, RADIO_DIO3_PIN ) << 3);
 #endif
 #if( !RADIO_DIO1_ENABLE && !RADIO_DIO2_ENABLE && !RADIO_DIO3_ENABLE )
 #error "Please define a DIO" 
