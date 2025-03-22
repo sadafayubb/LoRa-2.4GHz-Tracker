@@ -26,7 +26,14 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include "radio.h"
+#include "sx1280.h"
+#include "hw-gpio.h"
 
+#define BOARD_NUCLEO_L073RZ
+#define SHIELD_PCB_E394V02A
+
+#include "boards/boards.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,6 +43,37 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+// Define MASTER or SLAVE in project settings
+int DEMO_SETTING_ENTITY = 1; // 1 master, 0 slave
+
+// Common parameters
+#define RF_FREQUENCY         2402000000UL  // Hz
+#define TX_POWER             13          // dBm (max)
+#define ADDRESS              0x10000000  // 32-bit device address
+#define CALIBRATION_VALUE    13000       // Example value for SF10
+
+// Modulation Parameters (SF6, BW 1.6 MHz, CR 4/5)
+
+ModulationParams_t mod_params = {
+    .PacketType = PACKET_TYPE_RANGING,
+    .Params.LoRa = {
+        .SpreadingFactor = LORA_SF6,
+        .Bandwidth = LORA_BW_1600,
+        .CodingRate = LORA_CR_4_5
+    }
+};
+
+// Packet Parameters (40 symbol preamble, explicit header)
+PacketParams_t packet_params = {
+    .PacketType = PACKET_TYPE_RANGING,
+    .Params.LoRa = {
+        .PreambleLength = 32u,
+        .HeaderType = LORA_PACKET_VARIABLE_LENGTH,
+        .CrcMode = LORA_CRC_ON,
+        .InvertIQ = LORA_IQ_NORMAL
+    }
+};
 
 /* USER CODE END PD */
 
@@ -62,6 +100,25 @@ void SystemClock_Config(void);
 int __io_putchar(int ch) {
 	HAL_UART_Transmit(&huart2, (uint8_t*) &ch, 1, 1000);
 	return ch;
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+    if(GPIO_Pin == GPIO_PIN_4) { // PB4 (DIO1)
+    	 printf("IRQ FIRED!\n");  // Check if this prints
+        uint16_t irqStatus = Radio.GetIrqStatus();
+        Radio.ClearIrqStatus(IRQ_RADIO_ALL);
+
+        if(irqStatus & IRQ_RANGING_MASTER_RESULT_VALID) {
+            double distance = Radio.GetRangingResult(RANGING_RESULT_RAW);
+
+            // Direct printf to UART2
+            printf("Distance: %.2f m\r\n", distance);
+        }else { // Slave
+            if(irqStatus & IRQ_RANGING_SLAVE_REQUEST_VALID) {
+                printf("Slave: Request Received!\r\n");
+            }
+        }
+    }
 }
 
 /* USER CODE END 0 */
@@ -99,7 +156,36 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
 
-  printf("UART initialized! Ready for ranging...\n");
+  if(DEMO_SETTING_ENTITY){
+	  printf("MASTER Starting...\n");
+  }else {
+	  printf("SLAVE Starting...\n");
+  }
+
+  Radio.SetStandby(STDBY_RC);
+  Radio.SetPacketType(PACKET_TYPE_RANGING);
+  Radio.SetModulationParams(&mod_params);
+
+  // 5. Configure RF
+  Radio.SetRfFrequency(RF_FREQUENCY); // 2.403 GHz
+  Radio.SetTxParams(13, RADIO_RAMP_20_US);
+
+  printf("Default Initialization done...\n");
+
+  if(DEMO_SETTING_ENTITY){
+	  // 3. Set Slave Address
+	  Radio.SetRangingRequestAddress(ADDRESS);
+	  Radio.SetRangingRole(RADIO_RANGING_ROLE_MASTER);
+	  Radio.SetTx(RX_TX_CONTINUOUS);
+
+  } else {
+	  // 3. Set Own Address
+	  Radio.SetDeviceRangingAddress(ADDRESS);
+	  Radio.SetRangingRole(RADIO_RANGING_ROLE_SLAVE);
+	  Radio.SetRx(RX_TX_CONTINUOUS);
+  }
+
+  printf("Setting Defined initialization done...\n");
 
   /* USER CODE END 2 */
 

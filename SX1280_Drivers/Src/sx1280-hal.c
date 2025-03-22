@@ -17,6 +17,8 @@ Maintainer: Miguel Luis, Matthieu Verdy and Benjamin Boulet
 #include "sx1280-hal.h"
 #include "radio.h"
 #include <string.h>
+#include "spi.h"
+extern SPI_HandleTypeDef hspi1;
 
 /*!
  * \brief Define the size of tx and rx hal buffers
@@ -139,7 +141,7 @@ void SX1280HalIoIrqInit( DioIrqHandler **irqHandlers )
 	GpioSetIrq( RADIO_DIO3_PORT, RADIO_DIO3_PIN, IRQ_HIGH_PRIORITY, irqHandlers[0] );
 #endif
 #if( !RADIO_DIO1_ENABLE && !RADIO_DIO2_ENABLE && !RADIO_DIO3_ENABLE )
-#error "Please define a DIO" 
+#error "Please define a DIO"
 #endif
 }
 
@@ -298,20 +300,15 @@ uint8_t SX1280HalReadRegister( uint16_t address )
 
 void SX1280HalWriteBuffer( uint8_t offset, uint8_t *buffer, uint8_t size )
 {
-    uint16_t halSize = size + 2;
-    halTxBuffer[0] = RADIO_WRITE_BUFFER;
-    halTxBuffer[1] = offset;
-    memcpy( halTxBuffer + 2, buffer, size );
+	uint8_t halBuffer[MAX_HAL_BUFFER_SIZE];
+	    halBuffer[0] = RADIO_WRITE_BUFFER;
+	    halBuffer[1] = offset;
+	    memcpy(halBuffer + 2, buffer, size);
 
-    SX1280HalWaitOnBusy( );
-
-    GpioWrite( RADIO_NSS_PORT, RADIO_NSS_PIN, 0 );
-
-    SpiIn( halTxBuffer, halSize );
-
-    GpioWrite( RADIO_NSS_PORT, RADIO_NSS_PIN, 1 );
-
-    SX1280HalWaitOnBusy( );
+	    SX1280HalWaitOnBusy();
+	    HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_RESET);
+	    HAL_SPI_Transmit(&hspi1, halBuffer, size + 2, 100); // ✅ HAL
+	    HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_SET);
 }
 
 void SX1280HalReadBuffer( uint8_t offset, uint8_t *buffer, uint8_t size )

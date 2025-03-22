@@ -1067,7 +1067,7 @@ typedef struct
  * \param [in]  num            The register to be two's complemented
  * \param [in]  bitCnt         The position of the sign bit
  */
-static int32_t SX1280complement2( const uint32_t num, const uint8_t bitCnt );
+//static int32_t SX1280complement2( const uint32_t num, const uint8_t bitCnt );
 
 /*!
  * \brief Returns the value of LoRa bandwidth from driver's value

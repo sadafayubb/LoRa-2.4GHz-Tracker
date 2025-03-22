@@ -1,14 +1,165 @@
 
 #include "hw.h"
-
+#include "gpio.h"
 
 static GpioIrqHandler *GpioIrq[16] = { NULL };
+
+
+void GpioInit( void ){
+	MX_GPIO_Init();
+
+    /*Configure GPIO pin Output Level */
+    GpioWrite( GPIOC, LED_RX_PIN | LED_TX_PIN, GPIO_PIN_SET );
+
+    /*Configure GPIO pin Output Level */
+    GpioWrite( GPIOA, RADIO_nRESET_PIN | RADIO_NSS_PIN, GPIO_PIN_RESET );
+
+    /*Configure GPIO pin Output Level */
+    GpioWrite( ANT_SW_PORT, ANT_SW_PIN, GPIO_PIN_RESET );
+
+}
+
+void GpioDeInit( void )
+{
+    GPIO_InitTypeDef GPIO_InitStruct;
+
+    /*Configure GPIO pins : USART_TX_PIN */
+    GPIO_InitStruct.Pin = USART_TX_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( USART_TX_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : USART_RX_PIN */
+    GPIO_InitStruct.Pin = USART_RX_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( USART_RX_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : LED_RX_Pin */
+    GPIO_InitStruct.Pin = LED_RX_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( LED_RX_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : LED_TX_PIN */
+    GPIO_InitStruct.Pin = LED_TX_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( LED_TX_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : nRESET_Pin */
+    GPIO_InitStruct.Pin = RADIO_nRESET_PIN ;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( RADIO_nRESET_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : RADIO_NSS_Pin */
+    GPIO_InitStruct.Pin = RADIO_NSS_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( RADIO_NSS_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : RADIO_MOSI_PIN */
+    GPIO_InitStruct.Pin = RADIO_MOSI_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( RADIO_MOSI_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : RADIO_MISO_PIN */
+    GPIO_InitStruct.Pin = RADIO_MISO_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( RADIO_MISO_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pins : RADIO_SCK_PIN */
+    GPIO_InitStruct.Pin = RADIO_SCK_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( RADIO_SCK_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pin : ANT_SW_Pin */
+    GPIO_InitStruct.Pin = ANT_SW_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init( ANT_SW_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pin : PD2 */
+    GPIO_InitStruct.Pin = GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( GPIOD, &GPIO_InitStruct );
+
+    /*Configure GPIO pin : BUSY_Pin */
+    GPIO_InitStruct.Pin = RADIO_BUSY_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( RADIO_BUSY_PORT, &GPIO_InitStruct );
+
+    /*Configure GPIO pin : DIOx_Pin */
+    GPIO_InitStruct.Pin = RADIO_DIOx_PIN;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( RADIO_DIOx_PORT, &GPIO_InitStruct);
+
+
+
+    /*Configure GPIO pins : PA1 PA4 PA9 PA10
+                           PA11 PA12 PA15 */
+    GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_4 | GPIO_PIN_9 | GPIO_PIN_10
+                          | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( GPIOA, &GPIO_InitStruct );
+
+    GPIO_InitStruct.Pin = GPIO_PIN_All;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( GPIOB, &GPIO_InitStruct );
+
+    GPIO_InitStruct.Pin = GPIO_PIN_All;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( GPIOC, &GPIO_InitStruct );
+
+    GPIO_InitStruct.Pin = GPIO_PIN_All;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( GPIOD, &GPIO_InitStruct );
+
+    GPIO_InitStruct.Pin = GPIO_PIN_All;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( GPIOE, &GPIO_InitStruct );
+
+    GPIO_InitStruct.Pin = GPIO_PIN_All;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init( GPIOH, &GPIO_InitStruct );
+
+
+      /* Disable GPIOs clock */
+    __HAL_RCC_GPIOA_CLK_DISABLE( );
+    __HAL_RCC_GPIOB_CLK_DISABLE( );
+    __HAL_RCC_GPIOC_CLK_DISABLE( );
+    __HAL_RCC_GPIOH_CLK_DISABLE( );
+}
+
 
 
 /*!
  * @brief Records the interrupt handler for the GPIO  object
  *
- * @param  GPIOx: where x can be (A..E and H) 
+ * @param  GPIOx: where x can be (A..E and H)
  * @param  GPIO_Pin: specifies the port bit to be written.
  *                   This parameter can be one of GPIO_PIN_x where x can be (0..15).
  *                   All port bits are not necessarily available on all GPIOs.
@@ -90,7 +241,7 @@ void GpioWrite( GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, uint32_t value )
 /*!
  * @brief Reads the current GPIO input value
  *
- * @param  GPIOx: where x can be (A..E and H) 
+ * @param  GPIOx: where x can be (A..E and H)
  * @param  GPIO_Pin: specifies the port bit to be written.
  *                   This parameter can be one of GPIO_PIN_x where x can be (0..15).
  *                   All port bits are not necessarily available on all GPIOs.
@@ -99,4 +250,29 @@ void GpioWrite( GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, uint32_t value )
 uint32_t GpioRead( GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin )
 {
     return HAL_GPIO_ReadPin( GPIOx, GPIO_Pin );
+}
+
+/**
+  * @brief  EXTI line detection callbacks.
+  * @param  GPIO_Pin: Specifies the pins connected to the EXTI line.
+  * @retval None
+  */
+//void HAL_GPIO_EXTI_Callback( uint16_t GPIO_Pin )
+//{
+//  GpioLaunchIrqHandler( GPIO_Pin );
+//}
+
+
+/**
+  * @brief  Gets IRQ number as a finction of the GPIO_Pin.
+  * @param  GPIO_Pin: Specifies the pins connected to the EXTI line.
+  * @retval IRQ number
+  */
+
+IRQn_Type MSP_GetIRQn(uint16_t GPIO_Pin) {
+    // STM32L0 EXTI4-15 share a single IRQn
+    if ((GPIO_Pin >= GPIO_PIN_4) && (GPIO_Pin <= GPIO_PIN_15)) {
+        return EXTI4_15_IRQn;
+    }
+    return EXTI0_1_IRQn; // Default (adjust if needed)
 }

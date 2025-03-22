@@ -21,6 +21,4 @@
 
 void HwSetLowPower( void );
 
-void HAL_Delay( uint32_t Delay );
-
 #endif // __HW_H__

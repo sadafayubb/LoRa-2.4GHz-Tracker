@@ -23,10 +23,4 @@ void HwSetLowPower( void )
   * @param Delay: specifies the delay time length, in milliseconds.
   * @retval None
   */
-void HAL_Delay( uint32_t Delay )
-{
-    uint32_t tickstart = 0;
-    tickstart = HAL_GetTick( );
-    while( ( HAL_GetTick( ) - tickstart ) < Delay );
-}
 
