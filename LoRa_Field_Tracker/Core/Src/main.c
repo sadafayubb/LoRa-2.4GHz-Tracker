@@ -45,7 +45,7 @@
 /* USER CODE BEGIN PD */
 
 // Define MASTER or SLAVE in project settings
-int DEMO_SETTING_ENTITY = 1; // 1 master, 0 slave
+int DEMO_SETTING_ENTITY = 0; // 1 master, 0 slave
 
 // Common parameters
 #define RF_FREQUENCY         2402000000UL  // Hz
@@ -162,28 +162,32 @@ int main(void)
 	  printf("SLAVE Starting...\n");
   }
 
-  Radio.SetStandby(STDBY_RC);
-  Radio.SetPacketType(PACKET_TYPE_RANGING);
-  Radio.SetModulationParams(&mod_params);
+  SX1280SetStandby(STDBY_RC);
+  SX1280SetPacketType(PACKET_TYPE_RANGING);
+  SX1280SetModulationParams(&mod_params);
+  SX1280SetPacketParams(&packet_params);
 
   // 5. Configure RF
-  Radio.SetRfFrequency(RF_FREQUENCY); // 2.403 GHz
-  Radio.SetTxParams(13, RADIO_RAMP_20_US);
+  SX1280SetRfFrequency(RF_FREQUENCY); // 2.403 GHz
+  SX1280SetTxParams(13, RADIO_RAMP_20_US);
 
   printf("Default Initialization done...\n");
 
   if(DEMO_SETTING_ENTITY){
 	  // 3. Set Slave Address
-	  Radio.SetRangingRequestAddress(ADDRESS);
-	  Radio.SetRangingRole(RADIO_RANGING_ROLE_MASTER);
-	  Radio.SetTx(RX_TX_CONTINUOUS);
+	  SX1280SetRangingRequestAddress(ADDRESS);
+	  SX1280SetRangingRole(RADIO_RANGING_ROLE_MASTER);
+	  SX1280SetTx(RX_TX_CONTINUOUS);
 
   } else {
 	  // 3. Set Own Address
-	  Radio.SetDeviceRangingAddress(ADDRESS);
-	  Radio.SetRangingRole(RADIO_RANGING_ROLE_SLAVE);
-	  Radio.SetRx(RX_TX_CONTINUOUS);
+	  SX1280SetDeviceRangingAddress(ADDRESS);
+	  SX1280SetRangingRole(RADIO_RANGING_ROLE_SLAVE);
+	  SX1280SetRx(RX_TX_CONTINUOUS);
   }
+
+  GpioWrite(LED_TX_PORT, LED_TX_PIN, 1);
+  GpioWrite(LED_RX_PORT, LED_RX_PIN, 1);
 
   printf("Setting Defined initialization done...\n");
 
