@@ -28,13 +28,9 @@
 #include <stdio.h>
 #include "radio.h"
 #include "sx1280.h"
-#include "hw-gpio.h"
+#include "hw.h"
 #include "sx1280-hal.h"
 
-#define BOARD_NUCLEO_L073RZ
-#define SHIELD_PCB_E394V02A
-
-#include "boards/boards.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -104,6 +100,7 @@ int __io_putchar(int ch) {
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	// gotten from EXTI4_15_IRQHandler
     if(GPIO_Pin == GPIO_PIN_4) { // PB4 (DIO1)
     	 printf("IRQ FIRED!\n");  // Check if this prints
         uint16_t irqStatus = Radio.GetIrqStatus();
