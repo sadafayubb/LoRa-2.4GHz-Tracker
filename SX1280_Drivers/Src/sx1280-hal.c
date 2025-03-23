@@ -171,7 +171,7 @@ void SX1280HalClearInstructionRam(void) {
 
     SX1280HalWaitOnBusy();
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(&hspi1, halTxBuffer, halSize, 1000); //  HAL defined function
+    HAL_SPI_Transmit(&hspi1, halTxBuffer, halSize, HAL_MAX_DELAY ); //  HAL defined function
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_SET);
     SX1280HalWaitOnBusy();
 }
@@ -202,7 +202,7 @@ void SX1280HalWriteCommand(RadioCommands_t command, uint8_t *buffer, uint16_t si
 
     SX1280HalWaitOnBusy();
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(&hspi1, halTxBuffer, size + 1, 1000); // Single transmit
+    HAL_SPI_Transmit(&hspi1, halTxBuffer, size + 1, HAL_MAX_DELAY ); // Single transmit
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_SET);
     SX1280HalWaitOnBusy();
 }
@@ -218,7 +218,7 @@ void SX1280HalReadCommand(RadioCommands_t command, uint8_t *buffer, uint16_t siz
 
     SX1280HalWaitOnBusy();
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(&hspi1, halTxBuffer, halRxBuffer, size + 2, 1000);
+    HAL_SPI_TransmitReceive(&hspi1, halTxBuffer, halRxBuffer, size + 2, HAL_MAX_DELAY );
     memcpy(buffer, halRxBuffer + 2, size); // Skip command & status bytes
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_SET);
     SX1280HalWaitOnBusy();
@@ -233,7 +233,7 @@ void SX1280HalWriteRegisters(uint16_t address, uint8_t *data, uint16_t size) {
 
     SX1280HalWaitOnBusy();
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(&hspi1, halTxBuffer, size + 3, 1000);
+    HAL_SPI_Transmit(&hspi1, halTxBuffer, size + 3, HAL_MAX_DELAY );
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_SET);
     SX1280HalWaitOnBusy();
 }
@@ -256,7 +256,7 @@ void SX1280HalReadRegisters(uint16_t address, uint8_t *buffer, uint16_t size) {
 
     SX1280HalWaitOnBusy();
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(&hspi1, halTxBuffer, halRxBuffer, halSize, 1000); // ✅ HAL
+    HAL_SPI_TransmitReceive(&hspi1, halTxBuffer, halRxBuffer, halSize, HAL_MAX_DELAY ); // ✅ HAL
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_SET);
 
     memcpy(buffer, halRxBuffer + 4, size);
@@ -296,7 +296,7 @@ void SX1280HalReadBuffer(uint8_t offset, uint8_t *buffer, uint8_t size) {
 
     SX1280HalWaitOnBusy();
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(&hspi1, halTxBuffer, halRxBuffer, halSize, 1000); // ✅ HAL
+    HAL_SPI_TransmitReceive(&hspi1, halTxBuffer, halRxBuffer, halSize, HAL_MAX_DELAY ); // ✅ HAL
     HAL_GPIO_WritePin(RADIO_NSS_PORT, RADIO_NSS_PIN, GPIO_PIN_SET);
 
     memcpy(buffer, halRxBuffer + 3, size);

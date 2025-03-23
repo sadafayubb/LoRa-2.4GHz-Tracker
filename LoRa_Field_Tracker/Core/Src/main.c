@@ -29,6 +29,7 @@
 #include "radio.h"
 #include "sx1280.h"
 #include "hw-gpio.h"
+#include "sx1280-hal.h"
 
 #define BOARD_NUCLEO_L073RZ
 #define SHIELD_PCB_E394V02A
@@ -45,7 +46,7 @@
 /* USER CODE BEGIN PD */
 
 // Define MASTER or SLAVE in project settings
-int DEMO_SETTING_ENTITY = 0; // 1 master, 0 slave
+int DEMO_SETTING_ENTITY = 1; // 1 master, 0 slave
 
 // Common parameters
 #define RF_FREQUENCY         2402000000UL  // Hz
@@ -121,6 +122,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     }
 }
 
+
+
 /* USER CODE END 0 */
 
 /**
@@ -162,7 +165,38 @@ int main(void)
 	  printf("SLAVE Starting...\n");
   }
 
+  /// debug code BEGIN
+
+  printf("\r\n--- Starting Debug ---\r\n");
+
+  // 1. Reset Radio
+  printf("Resetting radio...\r\n");
+  // same as SX1280HalReset
+  HAL_GPIO_WritePin(RADIO_nRESET_PORT, RADIO_nRESET_PIN, GPIO_PIN_RESET);
+  HAL_Delay(20);
+  HAL_GPIO_WritePin(RADIO_nRESET_PORT, RADIO_nRESET_PIN, GPIO_PIN_SET);
+  HAL_Delay(100);
+
+  // 2. Basic Radio Check
+  printf("Reading firmware...\r\n");
+  uint16_t fw_version = SX1280GetFirmwareVersion();
+  printf("Firmware: 0x%04X\r\n", fw_version);
+
+     // ... rest of init ...
+
+  printf("BUSY Pin State: %d\n", HAL_GPIO_ReadPin(RADIO_BUSY_PORT, RADIO_BUSY_PIN));
+  /// debug code END
+
   SX1280SetStandby(STDBY_RC);
+
+  // more debugs
+  uint8_t status = SX1280HalReadRegister(0x0200); // Read status register
+  printf("Status: 0x%02X\n", status); // Should be 0x02 (STDBY_RC)
+
+  printf("BUSY Pin State: %d\n", HAL_GPIO_ReadPin(RADIO_BUSY_PORT, RADIO_BUSY_PIN));
+
+  // debugs end
+
   SX1280SetPacketType(PACKET_TYPE_RANGING);
   SX1280SetModulationParams(&mod_params);
   SX1280SetPacketParams(&packet_params);
@@ -174,12 +208,26 @@ int main(void)
   printf("Default Initialization done...\n");
 
   if(DEMO_SETTING_ENTITY){
+	  // Master configuration: enable both IRQs, and route RangingMasterResultValid to DIO1.
+	  SX1280SetDioIrqParams(IRQ_RANGING_MASTER_RESULT_VALID | IRQ_RANGING_MASTER_RESULT_TIMEOUT,
+			  IRQ_RANGING_MASTER_RESULT_VALID,  // Route primary event to DIO1
+			  0,                               // No IRQ on DIO2
+			  0);                              // No IRQ on DIO3
+
+
 	  // 3. Set Slave Address
 	  SX1280SetRangingRequestAddress(ADDRESS);
 	  SX1280SetRangingRole(RADIO_RANGING_ROLE_MASTER);
 	  SX1280SetTx(RX_TX_CONTINUOUS);
 
   } else {
+
+	  // Slave configuration: enable both IRQs, and route RangingSlaveResponseDone to DIO1.
+	  SX1280SetDioIrqParams(IRQ_RANGING_SLAVE_RESPONSE_DONE | IRQ_RANGING_SLAVE_REQUEST_DISCARDED,
+			  IRQ_RANGING_SLAVE_RESPONSE_DONE, // Route the response done event to DIO1
+			  0,                              // No IRQ on DIO2
+			  0);                             // No IRQ on DIO3
+
 	  // 3. Set Own Address
 	  SX1280SetDeviceRangingAddress(ADDRESS);
 	  SX1280SetRangingRole(RADIO_RANGING_ROLE_SLAVE);
@@ -191,6 +239,27 @@ int main(void)
 
   printf("Setting Defined initialization done...\n");
 
+  // MORE DEBUGGNING
+
+  // after initialization
+  uint8_t reg_0153 = SX1280HalReadRegister(0x0153);
+  uint8_t reg_0154 = SX1280HalReadRegister(0x0154);
+  printf("Reg 0x0153: 0x%02X\n", reg_0153);
+  printf("Reg 0x0154: 0x%02X\n", reg_0154);
+
+  // Test SPI with a loopback (short MOSI to MISO)
+  uint8_t tx_data = 0xAA;
+  uint8_t rx_data = 0;
+  HAL_SPI_TransmitReceive(&hspi1, &tx_data, &rx_data, 1, 100);
+  printf("SPI Loopback: Sent 0x%02X, Received 0x%02X\n", tx_data, rx_data);
+
+  // Read a known register like 0x0900 (RangingResultConfig)
+  uint8_t reg_value = SX1280HalReadRegister(0x0900);
+  printf("Reg 0x0900: 0x%02X\n", reg_value); // Default: 0x00
+
+
+  //DEBUGGNING END
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -200,6 +269,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	  //more debuggies
+
+	  if(HAL_GPIO_ReadPin(RADIO_DIO1_PORT, RADIO_DIO1_PIN)) {
+	      printf("DIO1 manually detected high!\n");
+	      HAL_GPIO_EXTI_IRQHandler(RADIO_DIO1_PIN);
+	  }
+
+	  //end debuggies
 
   }
   /* USER CODE END 3 */
