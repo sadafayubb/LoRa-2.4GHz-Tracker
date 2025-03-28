@@ -100,24 +100,46 @@ int __io_putchar(int ch) {
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	// gotten from EXTI4_15_IRQHandler
-    if(GPIO_Pin == GPIO_PIN_4) { // PB4 (DIO1)
-    	 printf("IRQ FIRED!\n");  // Check if this prints
+    if (GPIO_Pin == GPIO_PIN_4) { // PB4 (DIO1, etc.)
+        printf("IRQ FIRED! Status = 0x%04X\n", Radio.GetIrqStatus());
         uint16_t irqStatus = Radio.GetIrqStatus();
-        Radio.ClearIrqStatus(IRQ_RADIO_ALL);
+        Radio.ClearIrqStatus(IRQ_RADIO_ALL); // Clear all IRQ flags
 
-        if(irqStatus & IRQ_RANGING_MASTER_RESULT_VALID) {
-            double distance = Radio.GetRangingResult(RANGING_RESULT_RAW);
-
-            // Direct printf to UART2
-            printf("Distance: %.2f m\r\n", distance);
-        }else { // Slave
-            if(irqStatus & IRQ_RANGING_SLAVE_REQUEST_VALID) {
-                printf("Slave: Request Received!\r\n");
-            }
-        }
+        if (irqStatus & IRQ_TX_DONE)
+            printf("TX Done\n");
+        if (irqStatus & IRQ_RX_DONE)
+            printf("RX Done\n");
+        if (irqStatus & IRQ_SYNCWORD_VALID)
+            printf("Syncword Valid\n");
+        if (irqStatus & IRQ_SYNCWORD_ERROR)
+            printf("Syncword Error\n");
+        if (irqStatus & IRQ_HEADER_VALID)
+            printf("Header Valid\n");
+        if (irqStatus & IRQ_HEADER_ERROR)
+            printf("Header Error\n");
+        if (irqStatus & IRQ_CRC_ERROR)
+            printf("CRC Error\n");
+        if (irqStatus & IRQ_RANGING_SLAVE_RESPONSE_DONE)
+            printf("Ranging Slave Response Done\n");
+        if (irqStatus & IRQ_RANGING_SLAVE_REQUEST_DISCARDED)
+            printf("Ranging Slave Request Discarded\n");
+        if (irqStatus & IRQ_RANGING_MASTER_RESULT_VALID)
+            printf("Ranging Master Result Valid\n");
+        if (irqStatus & IRQ_RANGING_MASTER_RESULT_TIMEOUT)
+            printf("Ranging Master Result Timeout\n");
+        if (irqStatus & IRQ_RANGING_SLAVE_REQUEST_VALID)
+            printf("Ranging Slave Request Valid\n");
+        if (irqStatus & IRQ_CAD_DONE)
+            printf("CAD Done\n");
+        if (irqStatus & IRQ_CAD_ACTIVITY_DETECTED)
+            printf("CAD Activity Detected\n");
+        if (irqStatus & IRQ_RX_TX_TIMEOUT)
+            printf("RX/TX Timeout\n");
+        if (irqStatus & IRQ_PREAMBLE_DETECTED)
+            printf("Preamble Detected\n");
     }
 }
+
 
 
 
@@ -166,6 +188,10 @@ int main(void)
 
   printf("\r\n--- Starting Debug ---\r\n");
 
+  // After GPIO init:
+  printf("EXTI_RTSR: 0x%08lX\n", EXTI->RTSR);  // Should be 0x00000010 (PB4 rising)
+  printf("EXTI_IMR: 0x%08lX\n", EXTI->IMR);    // Should be 0x00000010 (PB4 enabled)
+
   // 1. Reset Radio
   printf("Resetting radio...\r\n");
   // same as SX1280HalReset
@@ -176,7 +202,7 @@ int main(void)
 
   // 2. Basic Radio Check
   printf("Reading firmware...\r\n");
-  uint16_t fw_version = SX1280GetFirmwareVersion();
+  uint16_t fw_version = Radio.GetFirmwareVersion();
   printf("Firmware: 0x%04X\r\n", fw_version);
 
      // ... rest of init ...
@@ -185,15 +211,6 @@ int main(void)
   /// debug code END
 
   SX1280SetStandby(STDBY_RC);
-
-  // more debugs
-  uint8_t status = SX1280HalReadRegister(0x0200); // Read status register
-  printf("Status: 0x%02X\n", status); // Should be 0x02 (STDBY_RC)
-
-  printf("BUSY Pin State: %d\n", HAL_GPIO_ReadPin(RADIO_BUSY_PORT, RADIO_BUSY_PIN));
-
-  // debugs end
-
   SX1280SetPacketType(PACKET_TYPE_RANGING);
   SX1280SetModulationParams(&mod_params);
   SX1280SetPacketParams(&packet_params);
@@ -202,15 +219,18 @@ int main(void)
   SX1280SetRfFrequency(RF_FREQUENCY); // 2.403 GHz
   SX1280SetTxParams(13, RADIO_RAMP_20_US);
 
+  // Set calibration (adjust based on SF)
+  SX1280SetRangingCalibration(13493); // found in demoRanging.c
+  Radio.SetRangingIdLength(RANGING_IDCHECK_LENGTH_32_BITS);
+
   printf("Default Initialization done...\n");
 
   if(DEMO_SETTING_ENTITY){
 	  // Master configuration: enable both IRQs, and route RangingMasterResultValid to DIO1.
-	  SX1280SetDioIrqParams(IRQ_RANGING_MASTER_RESULT_VALID | IRQ_RANGING_MASTER_RESULT_TIMEOUT,
-			  IRQ_RANGING_MASTER_RESULT_VALID,  // Route primary event to DIO1
-			  0,                               // No IRQ on DIO2
-			  0);                              // No IRQ on DIO3
-
+	  SX1280SetDioIrqParams(IRQ_RADIO_ALL,
+			  IRQ_RADIO_ALL,  // Route primary event to DIO1
+			  IRQ_RADIO_NONE,                               // No IRQ on DIO2
+			  IRQ_RADIO_NONE);                              // No IRQ on DIO3
 
 	  // 3. Set Slave Address
 	  SX1280SetRangingRequestAddress(ADDRESS);
@@ -220,10 +240,10 @@ int main(void)
   } else {
 
 	  // Slave configuration: enable both IRQs, and route RangingSlaveResponseDone to DIO1.
-	  SX1280SetDioIrqParams(IRQ_RANGING_SLAVE_RESPONSE_DONE | IRQ_RANGING_SLAVE_REQUEST_DISCARDED,
-			  IRQ_RANGING_SLAVE_RESPONSE_DONE, // Route the response done event to DIO1
-			  0,                              // No IRQ on DIO2
-			  0);                             // No IRQ on DIO3
+	  SX1280SetDioIrqParams(IRQ_RADIO_ALL,
+			  IRQ_RADIO_ALL, // Route the response done event to DIO1
+			  IRQ_RADIO_NONE,                              // No IRQ on DIO2
+			  IRQ_RADIO_NONE);                             // No IRQ on DIO3
 
 	  // 3. Set Own Address
 	  SX1280SetDeviceRangingAddress(ADDRESS);
@@ -236,26 +256,25 @@ int main(void)
 
   printf("Setting Defined initialization done...\n");
 
-  // MORE DEBUGGNING
+  // more debuggies
 
-  // after initialization
-  uint8_t reg_0153 = SX1280HalReadRegister(0x0153);
-  uint8_t reg_0154 = SX1280HalReadRegister(0x0154);
-  printf("Reg 0x0153: 0x%02X\n", reg_0153);
-  printf("Reg 0x0154: 0x%02X\n", reg_0154);
+  // Validate address registers (0x912-0x915)
+  uint32_t master_address = 0;
+  master_address |= Radio.ReadRegister(0x912) << 24;
+  master_address |= Radio.ReadRegister(0x913) << 16;
+  master_address |= Radio.ReadRegister(0x914) << 8;
+  master_address |= Radio.ReadRegister(0x915);
+  printf("Master Address: 0x%08lX\n", master_address);
 
-  // Test SPI with a loopback (short MOSI to MISO)
-  uint8_t tx_data = 0xAA;
-  uint8_t rx_data = 0;
-  HAL_SPI_TransmitReceive(&hspi1, &tx_data, &rx_data, 1, 100);
-  printf("SPI Loopback: Sent 0x%02X, Received 0x%02X\n", tx_data, rx_data);
+  // Validate address registers (0x916-0x919)
+  uint32_t slave_address = 0;
+  slave_address |= Radio.ReadRegister(0x916) << 24;
+  slave_address |= Radio.ReadRegister(0x917) << 16;
+  slave_address |= Radio.ReadRegister(0x918) << 8;
+  slave_address |= Radio.ReadRegister(0x919);
+  printf("Slave Address: 0x%08lX\n", slave_address);
 
-  // Read a known register like 0x0900 (RangingResultConfig)
-  uint8_t reg_value = SX1280HalReadRegister(0x0900);
-  printf("Reg 0x0900: 0x%02X\n", reg_value); // Default: 0x00
-
-
-  //DEBUGGNING END
+  // end debuggies
 
   /* USER CODE END 2 */
 
@@ -269,9 +288,12 @@ int main(void)
 
 	  //more debuggies
 
-	  if(HAL_GPIO_ReadPin(RADIO_DIO1_PORT, RADIO_DIO1_PIN)) {
-	      printf("DIO1 manually detected high!\n");
-	      HAL_GPIO_EXTI_IRQHandler(RADIO_DIO1_PIN);
+	  // In main loop
+	  static uint8_t last_state = 1;
+	  uint8_t current_state = HAL_GPIO_ReadPin(RADIO_DIO1_PORT, RADIO_DIO1_PIN);
+	  if(current_state != last_state) {
+	      printf("PB4 State: %d\r\n", current_state);
+	      last_state = current_state;
 	  }
 
 	  //end debuggies
