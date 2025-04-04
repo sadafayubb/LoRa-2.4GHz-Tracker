@@ -23,7 +23,7 @@ build/
 # Eclipse/STM32CubeIDE project files (ignore if machine-specific)
 #*.cproject
 #*.project
-*.mxproject
+#*.mxproject
 
 # Editor files
 *~
