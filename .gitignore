@@ -21,8 +21,8 @@ build/
 .settings/
 
 # Eclipse/STM32CubeIDE project files (ignore if machine-specific)
-*.cproject
-*.project
+#*.cproject
+#*.project
 *.mxproject
 
 # Editor files
