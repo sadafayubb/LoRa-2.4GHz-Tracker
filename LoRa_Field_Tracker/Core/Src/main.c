@@ -42,7 +42,7 @@
 /* USER CODE BEGIN PD */
 
 // Define MASTER or SLAVE in project settings
-int DEMO_SETTING_ENTITY = 1; // 1 master, 0 slave
+int DEMO_SETTING_ENTITY = 0; // 1 master, 0 slave
 
 // Common parameters
 #define RF_FREQUENCY         2402000000UL  // Hz
@@ -55,9 +55,9 @@ int DEMO_SETTING_ENTITY = 1; // 1 master, 0 slave
 ModulationParams_t mod_params = {
     .PacketType = PACKET_TYPE_RANGING,
     .Params.LoRa = {
-        .SpreadingFactor = LORA_SF6,
+        .SpreadingFactor = LORA_SF7,
         .Bandwidth = LORA_BW_1600,
-        .CodingRate = LORA_CR_4_5
+        .CodingRate = LORA_CR_4_7
     }
 };
 
@@ -71,6 +71,9 @@ PacketParams_t packet_params = {
         .InvertIQ = LORA_IQ_NORMAL
     }
 };
+
+uint16_t irqMaskM = IRQ_RANGING_MASTER_RESULT_VALID | IRQ_RANGING_MASTER_RESULT_TIMEOUT;
+uint16_t irqMaskS = IRQ_RANGING_SLAVE_REQUEST_VALID|IRQ_RANGING_SLAVE_RESPONSE_DONE;
 
 /* USER CODE END PD */
 
@@ -101,9 +104,9 @@ int __io_putchar(int ch) {
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     if (GPIO_Pin == GPIO_PIN_4) { // PB4 (DIO1, etc.)
-        printf("IRQ FIRED! Status = 0x%04X\n", Radio.GetIrqStatus());
-        uint16_t irqStatus = Radio.GetIrqStatus();
-        Radio.ClearIrqStatus(IRQ_RADIO_ALL); // Clear all IRQ flags
+        //printf("IRQ FIRED! Status = 0x%04X\n", Radio.GetIrqStatus());
+        uint16_t irqStatus = SX1280GetIrqStatus();
+        SX1280ClearIrqStatus(IRQ_RADIO_ALL); // Clear all IRQ flags
 
         if (irqStatus & IRQ_TX_DONE)
             printf("TX Done\n");
@@ -184,31 +187,38 @@ int main(void)
 	  printf("SLAVE Starting...\n");
   }
 
-  /// debug code BEGIN
-
-  printf("\r\n--- Starting Debug ---\r\n");
-
-  // After GPIO init:
-  printf("EXTI_RTSR: 0x%08lX\n", EXTI->RTSR);  // Should be 0x00000010 (PB4 rising)
-  printf("EXTI_IMR: 0x%08lX\n", EXTI->IMR);    // Should be 0x00000010 (PB4 enabled)
-
   // 1. Reset Radio
   printf("Resetting radio...\r\n");
-  // same as SX1280HalReset
-  HAL_GPIO_WritePin(RADIO_nRESET_PORT, RADIO_nRESET_PIN, GPIO_PIN_RESET);
-  HAL_Delay(20);
-  HAL_GPIO_WritePin(RADIO_nRESET_PORT, RADIO_nRESET_PIN, GPIO_PIN_SET);
-  HAL_Delay(100);
+  SX1280HalReset();
 
   // 2. Basic Radio Check
   printf("Reading firmware...\r\n");
   uint16_t fw_version = Radio.GetFirmwareVersion();
   printf("Firmware: 0x%04X\r\n", fw_version);
 
-     // ... rest of init ...
+  // vs
 
-  printf("BUSY Pin State: %d\n", HAL_GPIO_ReadPin(RADIO_BUSY_PORT, RADIO_BUSY_PIN));
-  /// debug code END
+  uint16_t reg = 0x153;
+  uint8_t txData[4];
+  uint8_t rxData[3];
+
+  txData[0] = 0x19; // Read Register Command (0x1D)
+  txData[1] = (uint8_t)(reg >> 8);      // High Byte of Address
+  txData[2] = (uint8_t)(reg & 0xFF);    // Low Byte of Address
+  txData[3] = 0x00;                     // Dummy Byte for Clocking Data Out
+
+  HAL_StatusTypeDef txStatus;
+  HAL_StatusTypeDef rxStatus;
+
+
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+  txStatus = HAL_SPI_Transmit(&hspi1, txData, 3, HAL_MAX_DELAY);
+  rxStatus = HAL_SPI_Receive(&hspi1, rxData, 3, HAL_MAX_DELAY);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+
+  printf("Firmware: 0x%X 0x%X\r\n", rxData[1], rxData[2]);
+
+     // ... rest of init ...
 
   SX1280SetStandby(STDBY_RC);
   SX1280SetPacketType(PACKET_TYPE_RANGING);
@@ -220,51 +230,55 @@ int main(void)
   SX1280SetTxParams(13, RADIO_RAMP_20_US);
 
   // Set calibration (adjust based on SF)
-  SX1280SetRangingCalibration(13493); // found in demoRanging.c
-  Radio.SetRangingIdLength(RANGING_IDCHECK_LENGTH_32_BITS);
-
-  printf("Default Initialization done...\n");
+  //SX1280SetRangingCalibration(13528); // found in demoRanging.c
 
   if(DEMO_SETTING_ENTITY){
+	  // 3. Set Slave Address
+	  SX1280SetRangingRequestAddress(ADDRESS);
+
 	  // Master configuration: enable both IRQs, and route RangingMasterResultValid to DIO1.
 	  SX1280SetDioIrqParams(IRQ_RADIO_ALL,
-			  IRQ_RADIO_ALL,  // Route primary event to DIO1
+			  IRQ_RANGING_MASTER_RESULT_VALID|IRQ_RANGING_MASTER_RESULT_TIMEOUT,  // Route primary event to DIO1
 			  IRQ_RADIO_NONE,                               // No IRQ on DIO2
 			  IRQ_RADIO_NONE);                              // No IRQ on DIO3
 
-	  // 3. Set Slave Address
-	  SX1280SetRangingRequestAddress(ADDRESS);
+	  SX1280HalWriteRegister( REG_LR_RANGINGRERXTXDELAYCAL, 0x34);
+
 	  SX1280SetRangingRole(RADIO_RANGING_ROLE_MASTER);
 	  SX1280SetTx(RX_TX_CONTINUOUS);
 
   } else {
 
+	  // 3. Set Own Address
+	  SX1280SetDeviceRangingAddress(ADDRESS);
+	  SX1280SetRangingIdLength(RANGING_IDCHECK_LENGTH_32_BITS);
+	  uint32_t length = Radio.ReadRegister(0x931);
+	  printf("Length 0x%08lX\n", (unsigned long)length);
+
 	  // Slave configuration: enable both IRQs, and route RangingSlaveResponseDone to DIO1.
 	  SX1280SetDioIrqParams(IRQ_RADIO_ALL,
-			  IRQ_RADIO_ALL, // Route the response done event to DIO1
+			  IRQ_RANGING_SLAVE_REQUEST_VALID|IRQ_RANGING_SLAVE_RESPONSE_DONE, // Route the response done event to DIO1
 			  IRQ_RADIO_NONE,                              // No IRQ on DIO2
 			  IRQ_RADIO_NONE);                             // No IRQ on DIO3
 
-	  // 3. Set Own Address
-	  SX1280SetDeviceRangingAddress(ADDRESS);
+	  SX1280HalWriteRegister( REG_LR_RANGINGRERXTXDELAYCAL, 0x34);
+
 	  SX1280SetRangingRole(RADIO_RANGING_ROLE_SLAVE);
 	  SX1280SetRx(RX_TX_CONTINUOUS);
   }
 
   GpioWrite(LED_TX_PORT, LED_TX_PIN, 1);
-  GpioWrite(LED_RX_PORT, LED_RX_PIN, 1);
-
-  printf("Setting Defined initialization done...\n");
 
   // more debuggies
 
+  HAL_Delay(10); // a short delay might help
   // Validate address registers (0x912-0x915)
   uint32_t master_address = 0;
   master_address |= Radio.ReadRegister(0x912) << 24;
   master_address |= Radio.ReadRegister(0x913) << 16;
   master_address |= Radio.ReadRegister(0x914) << 8;
   master_address |= Radio.ReadRegister(0x915);
-  printf("Master Address: 0x%08lX\n", master_address);
+  printf("Master Request Address: 0x%08lX\n", master_address);
 
   // Validate address registers (0x916-0x919)
   uint32_t slave_address = 0;
@@ -272,7 +286,7 @@ int main(void)
   slave_address |= Radio.ReadRegister(0x917) << 16;
   slave_address |= Radio.ReadRegister(0x918) << 8;
   slave_address |= Radio.ReadRegister(0x919);
-  printf("Slave Address: 0x%08lX\n", slave_address);
+  printf("Slave Respond Address: 0x%08lX\n", slave_address);
 
   // end debuggies
 

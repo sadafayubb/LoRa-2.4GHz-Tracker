@@ -247,8 +247,8 @@ void SX1280HalWriteRegister( uint16_t address, uint8_t value )
 void SX1280HalReadRegisters(uint16_t address, uint8_t *buffer, uint16_t size) {
     uint16_t halSize = 4 + size;
     halTxBuffer[0] = RADIO_READ_REGISTER;
-    halTxBuffer[1] = (address >> 8) & 0xFF;
-    halTxBuffer[2] = address & 0xFF;
+    halTxBuffer[1] = (uint8_t)(address >> 8); //& 0xFF;
+    halTxBuffer[2] = (uint8_t)(address & 0xFF);
     halTxBuffer[3] = 0x00; // Dummy byte
 
     // Clear receive buffer
