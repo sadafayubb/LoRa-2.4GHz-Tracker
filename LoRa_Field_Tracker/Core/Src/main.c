@@ -42,7 +42,7 @@
 /* USER CODE BEGIN PD */
 
 // Define MASTER or SLAVE in project settings
-int DEMO_SETTING_ENTITY = 0; // 1 master, 0 slave
+int DEMO_SETTING_ENTITY = 1; // 1 master, 0 slave
 
 // Common parameters
 #define RF_FREQUENCY         2402000000UL  // Hz
@@ -74,6 +74,8 @@ PacketParams_t packet_params = {
 
 uint16_t irqMaskM = IRQ_RANGING_MASTER_RESULT_VALID | IRQ_RANGING_MASTER_RESULT_TIMEOUT;
 uint16_t irqMaskS = IRQ_RANGING_SLAVE_REQUEST_VALID|IRQ_RANGING_SLAVE_RESPONSE_DONE;
+
+uint16_t last_status = 0;
 
 /* USER CODE END PD */
 
@@ -232,17 +234,23 @@ int main(void)
   // Set calibration (adjust based on SF)
   //SX1280SetRangingCalibration(13528); // found in demoRanging.c
 
+  // Additional SF & FEC Configuration (Datasheet Page 131)
+  SX1280HalWriteRegister(0x925, 0x37);  // SetAdditionalSFConf
+  SX1280HalWriteRegister(0x093C, 0x01);  // SetFECR
+
   if(DEMO_SETTING_ENTITY){
 	  // 3. Set Slave Address
 	  SX1280SetRangingRequestAddress(ADDRESS);
 
 	  // Master configuration: enable both IRQs, and route RangingMasterResultValid to DIO1.
-	  SX1280SetDioIrqParams(IRQ_RADIO_ALL,
-			  IRQ_RANGING_MASTER_RESULT_VALID|IRQ_RANGING_MASTER_RESULT_TIMEOUT,  // Route primary event to DIO1
+	  SX1280SetDioIrqParams(irqMaskM,
+			  irqMaskM,  // Route primary event to DIO1
 			  IRQ_RADIO_NONE,                               // No IRQ on DIO2
 			  IRQ_RADIO_NONE);                              // No IRQ on DIO3
 
-	  SX1280HalWriteRegister( REG_LR_RANGINGRERXTXDELAYCAL, 0x34);
+	  // With full 16-bit calibration:
+	  SX1280HalWriteRegister(0x92C, 0x34);  // High byte
+	  //SX1280HalWriteRegister(0x92D, 0xD8);  // Low byte
 
 	  SX1280SetRangingRole(RADIO_RANGING_ROLE_MASTER);
 	  SX1280SetTx(RX_TX_CONTINUOUS);
@@ -256,12 +264,14 @@ int main(void)
 	  printf("Length 0x%08lX\n", (unsigned long)length);
 
 	  // Slave configuration: enable both IRQs, and route RangingSlaveResponseDone to DIO1.
-	  SX1280SetDioIrqParams(IRQ_RADIO_ALL,
-			  IRQ_RANGING_SLAVE_REQUEST_VALID|IRQ_RANGING_SLAVE_RESPONSE_DONE, // Route the response done event to DIO1
+	  SX1280SetDioIrqParams(irqMaskS,
+			  irqMaskS, // Route the response done event to DIO1
 			  IRQ_RADIO_NONE,                              // No IRQ on DIO2
 			  IRQ_RADIO_NONE);                             // No IRQ on DIO3
 
-	  SX1280HalWriteRegister( REG_LR_RANGINGRERXTXDELAYCAL, 0x34);
+	  // With full 16-bit calibration:
+	  SX1280HalWriteRegister(0x92C, 0x34);  // High byte
+	  //SX1280HalWriteRegister(0x92D, 0xD8);  // Low byte
 
 	  SX1280SetRangingRole(RADIO_RANGING_ROLE_SLAVE);
 	  SX1280SetRx(RX_TX_CONTINUOUS);
@@ -272,21 +282,49 @@ int main(void)
   // more debuggies
 
   HAL_Delay(10); // a short delay might help
-  // Validate address registers (0x912-0x915)
-  uint32_t master_address = 0;
-  master_address |= Radio.ReadRegister(0x912) << 24;
-  master_address |= Radio.ReadRegister(0x913) << 16;
-  master_address |= Radio.ReadRegister(0x914) << 8;
-  master_address |= Radio.ReadRegister(0x915);
-  printf("Master Request Address: 0x%08lX\n", master_address);
+  // After all configurations, add:
+  printf("\n=== Critical Register Verification ===\n");
 
-  // Validate address registers (0x916-0x919)
-  uint32_t slave_address = 0;
-  slave_address |= Radio.ReadRegister(0x916) << 24;
-  slave_address |= Radio.ReadRegister(0x917) << 16;
-  slave_address |= Radio.ReadRegister(0x918) << 8;
-  slave_address |= Radio.ReadRegister(0x919);
-  printf("Slave Respond Address: 0x%08lX\n", slave_address);
+  // Verify SF Configuration (0x925)
+  uint8_t sf_conf = Radio.ReadRegister(0x925);
+  printf("SF Config (0x925): 0x%02X %s\n",
+         sf_conf,
+         (sf_conf == 0x37) ? "(OK-SF7)" :
+         (sf_conf == 0x1E) ? "(OK-SF5/6)" :
+         (sf_conf == 0x32) ? "(OK-SF9-12)" : "(WRONG!)");
+
+  // Verify FEC Configuration (0x093C)
+  uint8_t fec_conf = Radio.ReadRegister(0x093C);
+  printf("FEC Config (0x093C): 0x%02X %s\n",
+         fec_conf,
+         (fec_conf == 0x01) ? "(OK)" : "(WRONG!)");
+
+  // Verify Calibration Value
+  uint8_t cal_high = Radio.ReadRegister(0x92C);
+  uint8_t cal_low = Radio.ReadRegister(0x92D);
+  uint16_t full_cal = (cal_high << 8) | cal_low;
+  printf("Calibration (0x92C-0x92D): 0x%04X %s\n",
+         full_cal,
+         (full_cal == 0x34D8) ? "(OK-SF7/BW1600)" : "(WRONG!)");
+
+  // Verify Address Registers
+  if(DEMO_SETTING_ENTITY) {
+      uint8_t addr[4];
+      addr[0] = Radio.ReadRegister(0x912);
+      addr[1] = Radio.ReadRegister(0x913);
+      addr[2] = Radio.ReadRegister(0x914);
+      addr[3] = Radio.ReadRegister(0x915);
+      printf("Master Address: 0x%02X%02X%02X%02X\n",
+             addr[0], addr[1], addr[2], addr[3]);
+  } else {
+      uint8_t addr[4];
+      addr[0] = Radio.ReadRegister(0x916);
+      addr[1] = Radio.ReadRegister(0x917);
+      addr[2] = Radio.ReadRegister(0x918);
+      addr[3] = Radio.ReadRegister(0x919);
+      printf("Slave Address: 0x%02X%02X%02X%02X\n",
+             addr[0], addr[1], addr[2], addr[3]);
+  }
 
   // end debuggies
 
@@ -303,11 +341,15 @@ int main(void)
 	  //more debuggies
 
 	  // In main loop
-	  static uint8_t last_state = 1;
-	  uint8_t current_state = HAL_GPIO_ReadPin(RADIO_DIO1_PORT, RADIO_DIO1_PIN);
-	  if(current_state != last_state) {
-	      printf("PB4 State: %d\r\n", current_state);
-	      last_state = current_state;
+
+	  uint16_t current_status = SX1280GetIrqStatus();
+	  SX1280ClearIrqStatus(IRQ_RADIO_ALL); // Clear all IRQ flags
+	  if(last_status != current_status){
+		  if (current_status & IRQ_RANGING_MASTER_RESULT_VALID)
+			  printf("Ranging Master Result Valid\n");
+		  if (current_status & IRQ_RANGING_MASTER_RESULT_TIMEOUT)
+			  printf("Ranging Master Result Timeout\n");
+		  last_status = current_status;
 	  }
 
 	  //end debuggies
